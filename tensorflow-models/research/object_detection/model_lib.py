@@ -37,6 +37,8 @@ from object_detection.utils import shape_utils
 from object_detection.utils import variables_helper
 from object_detection.utils import visualization_utils as vis_utils
 
+import glob
+import shutil
 # A map of names to methods that help build the model.
 MODEL_BUILD_UTIL_MAP = {
     'get_configs_from_pipeline_file':
@@ -53,6 +55,36 @@ MODEL_BUILD_UTIL_MAP = {
         inputs.create_predict_input_fn,
 }
 
+
+class BestExporter(tf.estimator.BestExporter):
+  def export(self, estimator, export_path, checkpoint_path, eval_result, is_the_final_export):
+    if self._best_eval_result is None or self._compare_fn(self._best_eval_result, eval_result):
+      
+
+      # remove the last best checkpoint
+      for name in os.listdir(export_path):
+        os.remove(os.path.join(export_path, name))
+    
+      # copy the checkpoints files *.meta *.index, *.data* each time there is a better result, no cleanup for max amount of files here
+      for name in glob.glob(checkpoint_path + '.*'):
+        shutil.copy(name, os.path.join(export_path, os.path.basename(name)))
+          
+      # also save the text file used by the estimator api to find the best checkpoint      
+      with open(os.path.join(export_path, "checkpoint"), 'w') as f:
+        f.write("model_checkpoint_path: "+ os.path.basename(checkpoint_path))
+      
+      #tf.logging.info('Ambassador is exporting a better model ({} instead of {})...'.format(eval_result, self._best_eval_result))
+      if self._best_eval_result is None:
+        pass
+      else:
+        tf.logging.info('Ambassador is exporting a better model ({} instead of {}.'.format(str(float(eval_result['Loss/total_loss'])), str(float(self._best_eval_result['Loss/total_loss']))))
+      tf.logging.info('Best Loss: ' + str(float(eval_result['Loss/total_loss'])))
+      self._best_eval_result = eval_result
+    else:
+      #tf.logging.info('Ambassador is keeping the current best model ({} instead of {}).'.format(self._best_eval_result, eval_result))
+      tf.logging.info('Ambassador is keeping the current best model ({} instead of {}.'.format(str(float(self._best_eval_result['Loss/total_loss'])), str(float(eval_result['Loss/total_loss']))))
+      tf.logging.info('Best Loss: ' + str(float(self._best_eval_result['Loss/total_loss'])))
+      
 
 def _prepare_groundtruth_for_eval(detection_model, class_agnostic,
                                   max_number_of_boxes):
@@ -552,6 +584,8 @@ def create_estimator_and_inputs(run_config,
     'train_steps': Number of training steps. Either directly from input or from
       configuration.
   """
+
+
   get_configs_from_pipeline_file = MODEL_BUILD_UTIL_MAP[
       'get_configs_from_pipeline_file']
   merge_external_params_with_configs = MODEL_BUILD_UTIL_MAP[
@@ -693,14 +727,26 @@ def create_train_and_eval_specs(train_input_fn,
       exporter_name = final_exporter_name
     else:
       exporter_name = '{}_{}'.format(final_exporter_name, eval_spec_name)
+    
     exporter = tf.estimator.FinalExporter(
         name=exporter_name, serving_input_receiver_fn=predict_input_fn)
+    
+
+    best_exporter = BestExporter(name="best_exporter",
+                                              serving_input_receiver_fn=predict_input_fn,
+                                              event_file_pattern='eval_eval/*,tfevents.*',
+                                              exports_to_keep=1)
+    exporters = [best_exporter]
+    train_spec = tf.estimator.TrainSpec(
+                                        input_fn=train_input_fn,
+                                        max_steps=train_steps)
+
     eval_specs.append(
         tf.estimator.EvalSpec(
             name=eval_spec_name,
             input_fn=eval_input_fn,
             steps=None,
-            exporters=exporter))
+            exporters=exporters))
 
   if eval_on_train_data:
     eval_specs.append(
