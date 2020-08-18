@@ -58,8 +58,10 @@ MODEL_BUILD_UTIL_MAP = {
 
 class BestExporter(tf.estimator.BestExporter):
   def export(self, estimator, export_path, checkpoint_path, eval_result, is_the_final_export):
+
+    tf.logging.info('best_loss: ')
+    
     if self._best_eval_result is None or self._compare_fn(self._best_eval_result, eval_result):
-      
 
       # remove the last best checkpoint
       for name in os.listdir(export_path):
@@ -73,17 +75,15 @@ class BestExporter(tf.estimator.BestExporter):
       with open(os.path.join(export_path, "checkpoint"), 'w') as f:
         f.write("model_checkpoint_path: "+ os.path.basename(checkpoint_path))
       
-      #tf.logging.info('Ambassador is exporting a better model ({} instead of {})...'.format(eval_result, self._best_eval_result))
       if self._best_eval_result is None:
-        pass
+        tf.logging.info('best_loss: ' + str(float(eval_result['Loss/total_loss'])))
       else:
-        tf.logging.info('Ambassador is exporting a better model ({} instead of {}.'.format(str(float(eval_result['Loss/total_loss'])), str(float(self._best_eval_result['Loss/total_loss']))))
-      tf.logging.info('Best Loss: ' + str(float(eval_result['Loss/total_loss'])))
+        tf.logging.info('Ambassador is exporting a better model ({} instead of {}).'.format(str(float(eval_result['Loss/total_loss'])), str(float(self._best_eval_result['Loss/total_loss']))))
+      tf.logging.info('best_loss: ' + str(float(eval_result['Loss/total_loss'])))
       self._best_eval_result = eval_result
     else:
-      #tf.logging.info('Ambassador is keeping the current best model ({} instead of {}).'.format(self._best_eval_result, eval_result))
-      tf.logging.info('Ambassador is keeping the current best model ({} instead of {}.'.format(str(float(self._best_eval_result['Loss/total_loss'])), str(float(eval_result['Loss/total_loss']))))
-      tf.logging.info('Best Loss: ' + str(float(self._best_eval_result['Loss/total_loss'])))
+      tf.logging.info('Ambassador is keeping the current best model ({} instead of {}).'.format(str(float(self._best_eval_result['Loss/total_loss'])), str(float(eval_result['Loss/total_loss']))))
+      tf.logging.info('best_loss: ' + str(float(self._best_eval_result['Loss/total_loss'])))
       
 
 def _prepare_groundtruth_for_eval(detection_model, class_agnostic,
