@@ -73,14 +73,14 @@ class BestExporter(tf.estimator.BestExporter):
         f.write("model_checkpoint_path: "+ os.path.basename(checkpoint_path))
       
       if self._best_eval_result is None:
-        tf.logging.info('best_loss = {}.'.format(str(float(eval_result['Loss/total_loss']))))
+        tf.logging.info('best_loss = {} .'.format(str(float(eval_result['Loss/total_loss']))))
       else:
         tf.logging.info('Ambassador is exporting a better model ({} instead of {}).'.format(str(float(eval_result['Loss/total_loss'])), str(float(self._best_eval_result['Loss/total_loss']))))
-        tf.logging.info('best_loss = {}.'.format(str(float(eval_result['Loss/total_loss']))))
+        tf.logging.info('best_loss = {} .'.format(str(float(eval_result['Loss/total_loss']))))
       self._best_eval_result = eval_result
     else:
       tf.logging.info('Ambassador is keeping the current best model ({} instead of {}).'.format(str(float(self._best_eval_result['Loss/total_loss'])), str(float(eval_result['Loss/total_loss']))))
-      tf.logging.info('best_loss = {}.'.format(str(float(self._best_eval_result['Loss/total_loss']))))
+      tf.logging.info('best_loss = {} .'.format(str(float(self._best_eval_result['Loss/total_loss']))))
       
 
 def _prepare_groundtruth_for_eval(detection_model, class_agnostic,
